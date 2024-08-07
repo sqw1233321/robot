@@ -1,4 +1,4 @@
-import { _decorator, Component, Constructor, Node, Size } from 'cc';
+import { _decorator, Component, Constructor, Node, Size, UITransform } from 'cc';
 const { ccclass, property } = _decorator;
 
 @ccclass('Extendtion')
@@ -23,7 +23,13 @@ let addComponentSafe = function <T extends Component>(typeOrClassName: Construct
     return com;
 }
 
+let transform = function (): UITransform {
+    return this.addComponentSafe(UITransform);
+}
+
+
 Size.prototype.mulitply = mulitply;
 Node.prototype.addComponentSafe = addComponentSafe;
 Component.prototype.addComponentSafe = addComponentSafe;
+Node.prototype.transform = transform;
 
