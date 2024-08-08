@@ -12,7 +12,7 @@ export class CarEngine extends Component {
     //档位对应输入输出轮齿比
     private _gearRatios: number[] = [5.8, 4.5, 3.74, 2.8, 1.6, 0.79, 4.2];
     //当前档位
-    private _currentGear: number = 0;
+    private _currentGear: number = 1;
     /**
      * 获取当前档位
      */

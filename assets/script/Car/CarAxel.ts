@@ -82,9 +82,7 @@ export class CarAxel extends Component {
 
 
     public init(carRb: RigidBody2D, wheelBase: number) {
-        //重力贡献到每个轴和轮胎上
         this._weightRatio = this._distanceToCg / wheelBase;
-        //计算每个轮胎上剩余的重量
         const carMass = carRb.getMass();
         const weight = carMass * (this._weightRatio * PhysicsSystem2D.instance.gravity.y);
         this._leftTire.restingWeight = weight;
