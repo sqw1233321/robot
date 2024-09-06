@@ -236,14 +236,16 @@ export class CarMain extends Component {
         this._deltaTime = dt;
         this.updateCar();
         this.updateRedDot();
-        // // Skidmarks
-        // if (Math.abs(this._localAcceleration.y) > 18 || this._eBrake == 1) {
-        //     AxleRear.TireRight.SetTrailActive(true);
-        //     AxleRear.TireLeft.SetTrailActive(true);
-        // } else {
-        //     AxleRear.TireRight.SetTrailActive(false);
-        //     AxleRear.TireLeft.SetTrailActive(false);
-        // }
+        // //漂移线
+        if (Math.abs(this._localAcceleration.y) > 18 || this._eBrake == 1) {
+            console.log("开启漂移线");
+            // AxleRear.TireRight.SetTrailActive(true);
+            // AxleRear.TireLeft.SetTrailActive(true);
+        } else {
+            console.log("关闭漂移线");
+            // AxleRear.TireRight.SetTrailActive(false);
+            // AxleRear.TireLeft.SetTrailActive(false);
+        }
         this._engine.updateAutomaticTransmission(this);
         this.updateUI();
     }
@@ -255,21 +257,16 @@ export class CarMain extends Component {
     }
 
     private setCamera() {
-        this.cameraAll.setPosition(this.node.getPosition());
+        //this.cameraAll.setPosition(this.node.getPosition());
     }
 
     private calCarStatus(dt: number) {
         dt = 0.02;
-        // Update from rigidbody to retain collision responses
         const linearvX = this._carRb.linearVelocity.x;
         const linearvY = this._carRb.linearVelocity.y;
         this._velocity.x = linearvX;
         this._velocity.y = linearvY;
-        this._headingAngle = this._carRb.node.getRotation().z + Math.PI / 2 + this._accumulatedAngle;
-        // console.log("12312333      ", this._carRb.node.getRotation().z + Math.PI / 2);
-        // console.log("cnm   ", Math.PI * (this._accumulatedAngle / 180));
-        console.log("head head head  ",this._headingAngle);
-
+        this._headingAngle = this._accumulatedAngle + Math.PI / 2;
 
         const sin = Math.sin(this._headingAngle);
         const cos = Math.cos(this._headingAngle);
@@ -280,7 +277,7 @@ export class CarMain extends Component {
 
         // Weight transfer
         const transferX = this._weightTransfer * this._localAcceleration.x * this._cGHeight / this._wheelBase;
-        const transferY = this._weightTransfer * this._localAcceleration.y * this._cGHeight / this._trackWidth * 20;		//exagerate the weight transfer on the y-axis
+        const transferY = this._weightTransfer * this._localAcceleration.y * this._cGHeight / this._trackWidth * 20;
 
         // Weight on each axle
         const weightFront = this.carMass * (this._axelFront.getWeightRatio() * this.getGravity().y - transferX);
@@ -292,17 +289,14 @@ export class CarMain extends Component {
         this._axelRear.getLeftTire().activeWeight = weightRear - transferY;
         this._axelRear.getRightTire().activeWeight = weightRear + transferY;
 
-
         // Velocity of each tire
         this._axelFront.getLeftTire().angularVelocity = this._axelFront.getDistanceToCg() * this._angularVelocity;
         this._axelFront.getRightTire().angularVelocity = this._axelFront.getDistanceToCg() * this._angularVelocity;
         this._axelRear.getLeftTire().angularVelocity = -this._axelRear.getDistanceToCg() * this._angularVelocity;
         this._axelRear.getRightTire().angularVelocity = -this._axelRear.getDistanceToCg() * this._angularVelocity;
 
-
         // Slip angle
         const frontSlipAngle = Math.atan2(this._localVelocity.y + this._axelFront.getAngularVelocity(), Math.abs(this._localVelocity.x)) - MathUtil.sign(this._localVelocity.x) * this._steerAngle;
-
         const rearSlipAngle = Math.atan2(this._localVelocity.y + this._axelRear.getAngularVelocity(), Math.abs(this._localVelocity.x));
         this._axelFront.setSlipAngle(frontSlipAngle);
         this._axelRear.setSlipAngle(rearSlipAngle);
@@ -327,7 +321,6 @@ export class CarMain extends Component {
         this._axelRear.getLeftTire().frictionForce = MathUtil.clamp(-this._cornerStiffnessRear * this._axelRear.getSlipAngle(), -this._axelRear.getLeftTire().grip, this._axelRear.getLeftTire().grip) * this._axelRear.getLeftTire().activeWeight;
         this._axelRear.getRightTire().frictionForce = MathUtil.clamp(-this._cornerStiffnessRear * this._axelRear.getSlipAngle(), -this._axelRear.getRightTire().grip, this._axelRear.getRightTire().grip) * this._axelRear.getRightTire().activeWeight;
 
-
         // Forces
         const tractionForceX = this._axelRear.getTorque() - activeBrake * Math.sign(this._localVelocity.x);
         const tractionForceY = 0;
@@ -351,7 +344,6 @@ export class CarMain extends Component {
         this._localAcceleration.x = totalForceX / this.carMass;
         this._localAcceleration.y = totalForceY / this.carMass;
 
-
         this._acceleration.x = cos * this._localAcceleration.x - sin * this._localAcceleration.y;
         this._acceleration.y = sin * this._localAcceleration.x + cos * this._localAcceleration.y;
 
@@ -363,7 +355,6 @@ export class CarMain extends Component {
         //力矩主要来源于摩擦力
         let angularTorque = (this._axelFront.getFrictionForce() * this._axelFront.getDistanceToCg()) - (this._axelRear.getFrictionForce() * this._axelRear.getDistanceToCg());
         this._angularTorque = angularTorque;
-
 
         // 汽车低速且无油门时直接刹停
         if (this._absoluteVelocity < 0.5 && activeThrottle == 0) {
@@ -390,7 +381,6 @@ export class CarMain extends Component {
 
         //汽车指向角度（弧度）
         this._accumulatedAngle += this._angularVelocity * dt;
-        console.log("累计弧度   ", this._accumulatedAngle);
         this._headingAngle = this._accumulatedAngle * 180 / Math.PI;
         const clampedAngle = this._headingAngle % 360;
         this.node.setRotationFromEuler(0, 0, clampedAngle);
