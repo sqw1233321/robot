@@ -17,5 +17,13 @@ export class MathUtil {
             return value;
         }
     }
+
+    public static sign(num: number) {
+        return num >= 0 ? 1 : -1;
+    }
+
+    public static max(a, b) {
+        return a >= b ? a : b;
+    }
 }
 

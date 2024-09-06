@@ -1,7 +1,8 @@
 //车轴
 
-import { _decorator, Component, Node, PhysicsSystem2D, RigidBody, RigidBody2D } from 'cc';
+import { _decorator, Component, Node, PhysicsSystem2D, RigidBody, RigidBody2D, Vec2 } from 'cc';
 import { CarTire } from './CarTire';
+import { CarMain } from './CarMain';
 const { ccclass, property } = _decorator;
 
 @ccclass('CarAxel')
@@ -20,7 +21,9 @@ export class CarAxel extends Component {
     //滑移角
     private _slipAngle: number;
     //摩擦力
-    private _frictionForce: number
+    private _frictionForce: number;
+
+    private _gravity = new Vec2(0, 9.81);
 
     onLoad() {
         this._leftTire = this.leftTireNd.addComponentSafe(CarTire);
@@ -45,10 +48,6 @@ export class CarAxel extends Component {
 
     public getWeightRatio() {
         return this._weightRatio;
-    }
-
-    public setWeightRatio(ratio: number) {
-        this._weightRatio = ratio;
     }
 
     //偏滑角
@@ -81,12 +80,14 @@ export class CarAxel extends Component {
     }
 
 
-    public init(carRb: RigidBody2D, wheelBase: number) {
+    public init(carRb: CarMain, wheelBase: number) {
         this._weightRatio = this._distanceToCg / wheelBase;
-        const carMass = carRb.getMass();
-        const weight = carMass * (this._weightRatio * PhysicsSystem2D.instance.gravity.y);
+        const carMass = carRb.carMass;
+        const weight = carMass * (this._weightRatio * this._gravity.y);
         this._leftTire.restingWeight = weight;
         this._rightTire.restingWeight = weight;
     }
+
+
 }
 

@@ -1,6 +1,6 @@
 //车辆本身
 
-import { _decorator, Component, error, EventKeyboard, Game, Input, input, instantiate, IQuatLike, JsonAsset, KeyCode, Label, macro, math, Node, physics, PhysicsSystem2D, Quat, quat, resources, RigidBody2D, v2, Vec2 } from 'cc';
+import { _decorator, Component, Director, director, error, EventKeyboard, Input, input, instantiate, IQuatLike, JsonAsset, KeyCode, Label, macro, math, Node, PhysicsSystem, PhysicsSystem2D, Quat, resources, RigidBody2D, v2, v3, Vec2, Vec3 } from 'cc';
 import { CarAxel } from './CarAxel';
 import { CarEngine } from './CarEngine';
 import { MathUtil } from '../Util/MathUtil';
@@ -29,6 +29,9 @@ export class CarMain extends Component {
     @property(Node)
     uiNode;
 
+    @property(Node)
+    cameraAll: Node;
+
     //参数：
     ///////////////////////////////////////////////////////////////////////
     private _cGHeight = 0.55;
@@ -37,11 +40,11 @@ export class CarMain extends Component {
 
     private _brakePower = 12000;
 
-    private _eBrakePower = 5000;
+    private _eBrakePower = 4800;
 
-    private _weightTransfer = 0.35;
+    private _weightTransfer = 0.24;
 
-    private _maxSteerAngle = 0.75;
+    private _maxSteerAngle = 0.797;
 
     private _cornerStiffnessFront = 5.0;
 
@@ -63,15 +66,15 @@ export class CarMain extends Component {
 
     private _steerAdjustSpeed = 1;
 
-    private _speedSteerCorrection = 300;
+    private _speedSteerCorrection = 295;
 
-    private _speedTurningStability = 10;
+    private _speedTurningStability = 11.8;
 
-    private _axleDistanceCorrection = 2;
+    private _axleDistanceCorrection = 1.7;
 
     /////////////////////////////////////////////////////////////////////
     //遥测数据
-    private _carMass: number = 500;
+    public carMass: number = 1500;
 
     private _rpm: number;
     private _gear: number;
@@ -85,13 +88,15 @@ export class CarMain extends Component {
     private _tireFRFriction: number;
     private _tireRLFriction: number;
     private _tireRRFriction: number;
-    
+
 
     private _leftTorque: number;
     private _rightTorque: number;
 
     private _frontSlipAngle: number;
     private _rearSlipAngle: number;
+
+    private _angularTorque: number;
 
 
     //惯性
@@ -148,7 +153,10 @@ export class CarMain extends Component {
     private _allKey: string[] = [];
     private _carDatObj: [];
 
-    private _pressCode: number = 0;
+    private _pressCodeDirect: number = 0;
+    private _pressCodeRotate: number = 0;
+
+    private _gravity = new Vec2(0, 9.81);
 
     /**
      * 获取线速度
@@ -157,8 +165,15 @@ export class CarMain extends Component {
         return this._absoluteVelocity;
     }
 
+    private setPhysics() {
+        const physicsSystem = PhysicsSystem2D.instance;
+        physicsSystem.velocityIterations = 8;
+        physicsSystem.positionIterations = 3;
+    }
+
 
     protected onLoad(): void {
+        this.setPhysics();
         resources.load('carDatJson', (err: any, res: JsonAsset) => {
             if (err) {
                 error(err.message || err);
@@ -181,7 +196,6 @@ export class CarMain extends Component {
         this._localVelocity = v2(0, 0);
         this._velocity = v2(0, 0);
         this._absoluteVelocity = 0;
-        this._localVelocity = v2(0, 0);
         this._localAcceleration = v2(0, 0);
 
         //质心
@@ -191,7 +205,7 @@ export class CarMain extends Component {
         this._axelRear.setDistanceToCg(disR * this._axleDistanceCorrection);
 
         this._wheelBase = this._axelFront.getDistanceToCg() + this._axelRear.getDistanceToCg();
-        this._inertia = this._carMass * this._inertiaScale;
+        this._inertia = this.carMass * this._inertiaScale;
 
         // Set starting angle of car
         //Rigidbody2D.rotation = transform.rotation.eulerAngles.z;
@@ -199,38 +213,55 @@ export class CarMain extends Component {
     }
 
     protected start(): void {
-        this._axelFront.init(this._carRb, this._wheelBase);
-        this._axelRear.init(this._carRb, this._wheelBase);
-        //假定前后轮同轴轮距是一样的？？？？？？？？？？？？？？？？？？？？？？？
+        this._axelFront.init(this, this._wheelBase);
+        this._axelRear.init(this, this._wheelBase);
         this._trackWidth = Vec2.distance(this._axelRear.getLeftTire().node.position, this._axelRear.getRightTire().node.position);
-        this.schedule(() => { this._fixedUpdate() }, 0.02, macro.REPEAT_FOREVER);
+        director.on(Director.EVENT_BEFORE_PHYSICS, this._fixedUpdate, this);
     }
 
     private onKeyDown(event: EventKeyboard) {
         const code = event.keyCode;
-        this._pressCode = code;
+        if (code == KeyCode.ARROW_UP || code == KeyCode.ARROW_DOWN) this._pressCodeDirect = code;
+        else if (code == KeyCode.ARROW_LEFT || code == KeyCode.ARROW_RIGHT) this._pressCodeRotate = code;
     }
 
     private onKeyUp(event: EventKeyboard) {
-        this._pressCode = 0;
+        const code = event.keyCode;
+        if (code == KeyCode.ARROW_UP || code == KeyCode.ARROW_DOWN) this._pressCodeDirect = 0
+        else if (code == KeyCode.ARROW_LEFT || code == KeyCode.ARROW_RIGHT) this._pressCodeRotate = 0;
     }
 
     protected update(dt: number): void {
         this._deltaTime = dt;
         this.updateCar();
+        this.updateRedDot();
+        // // Skidmarks
+        // if (Math.abs(this._localAcceleration.y) > 18 || this._eBrake == 1) {
+        //     AxleRear.TireRight.SetTrailActive(true);
+        //     AxleRear.TireLeft.SetTrailActive(true);
+        // } else {
+        //     AxleRear.TireRight.SetTrailActive(false);
+        //     AxleRear.TireLeft.SetTrailActive(false);
+        // }
+        this._engine.updateAutomaticTransmission(this);
         this.updateUI();
     }
 
-    private _fixedUpdate() {
-        this.calCarStatus();
+    private _fixedUpdate(dt: number) {
+        this.calCarStatus(dt);
         this.setOtherShowDat();
+        this.cameraAll.setPosition(this.node.getPosition());
     }
 
-    private calCarStatus() {
+    private calCarStatus(dt: number) {
+        dt = 0.02;
         // Update from rigidbody to retain collision responses
-        this._velocity.x = this._carRb.linearVelocity.x;
-        this._velocity.y = this._carRb.linearVelocity.y
+        const linearvX = this._carRb.linearVelocity.x;
+        const linearvY = this._carRb.linearVelocity.y;
+        this._velocity.x = linearvX;
+        this._velocity.y = linearvY;
         this._headingAngle = (this._carRb.node.rotation.z + 90) * MathUtil.deg2Rad;
+        //this._angularVelocity = this._carRb.angularVelocity;
 
         const sin = Math.sin(this._headingAngle);
         const cos = Math.cos(this._headingAngle);
@@ -244,8 +275,8 @@ export class CarMain extends Component {
         const transferY = this._weightTransfer * this._localAcceleration.y * this._cGHeight / this._trackWidth * 20;		//exagerate the weight transfer on the y-axis
 
         // Weight on each axle
-        const weightFront = this._carMass * (this._axelFront.getWeightRatio() * -this.getGravity().y - transferX);
-        const weightRear = this._carMass * (this._axelRear.getWeightRatio() * -this.getGravity().y + transferX);
+        const weightFront = this.carMass * (this._axelFront.getWeightRatio() * this.getGravity().y - transferX);
+        const weightRear = this.carMass * (this._axelRear.getWeightRatio() * this.getGravity().y + transferX);
 
         // Weight on each tire
         this._axelFront.getLeftTire().activeWeight = weightFront - transferY;
@@ -253,21 +284,21 @@ export class CarMain extends Component {
         this._axelRear.getLeftTire().activeWeight = weightRear - transferY;
         this._axelRear.getRightTire().activeWeight = weightRear + transferY;
 
+        console.log("yyyy   ", this._localVelocity.y);
+        //console.log("angularVelocity   ", this._angularVelocity);
+        this._angularVelocity /= 10;
         // Velocity of each tire
         this._axelFront.getLeftTire().angularVelocity = this._axelFront.getDistanceToCg() * this._angularVelocity;
         this._axelFront.getRightTire().angularVelocity = this._axelFront.getDistanceToCg() * this._angularVelocity;
         this._axelRear.getLeftTire().angularVelocity = -this._axelRear.getDistanceToCg() * this._angularVelocity;
         this._axelRear.getRightTire().angularVelocity = -this._axelRear.getDistanceToCg() * this._angularVelocity;
-        console.log("666666666666  ", this._axelFront.getAngularVelocity());
 
         // Slip angle
-        const frontSlipAngle = Math.atan2(this._localVelocity.y + this._axelFront.getAngularVelocity(), Math.abs(this._localVelocity.x)) - Math.sign(this._localVelocity.x) * this._steerAngle;
+        const frontSlipAngle = Math.atan2(this._localVelocity.y + this._axelFront.getAngularVelocity(), Math.abs(this._localVelocity.x)) - MathUtil.sign(this._localVelocity.x) * this._steerAngle;
         const rearSlipAngle = Math.atan2(this._localVelocity.y + this._axelRear.getAngularVelocity(), Math.abs(this._localVelocity.x));
-        //testHHY
         this._axelFront.setSlipAngle(frontSlipAngle);
         this._axelRear.setSlipAngle(rearSlipAngle);
 
-        console.log("77777777777  ", frontSlipAngle)
 
         // Brake and Throttle power
         const activeBrake = Math.min(this._brake * this._brakePower + this._eBrake * this._eBrakePower, this._brakePower);
@@ -280,14 +311,13 @@ export class CarMain extends Component {
         // Grip and Friction of each tire
         this._axelFront.getLeftTire().grip = this._totalTireGripFront * (1.0 - this._eBrake * (1.0 - this._eBrakeGripRatioFront));
         this._axelFront.getRightTire().grip = this._totalTireGripFront * (1.0 - this._eBrake * (1.0 - this._eBrakeGripRatioFront));
-        this._axelRear.getLeftTire().grip = this._totalTireGripFront * (1.0 - this._eBrake * (1.0 - this._eBrakeGripRatioRear));
-        this._axelRear.getRightTire().grip = this._totalTireGripFront * (1.0 - this._eBrake * (1.0 - this._eBrakeGripRatioRear));
+        this._axelRear.getLeftTire().grip = this._totalTireGripRear * (1.0 - this._eBrake * (1.0 - this._eBrakeGripRatioRear));
+        this._axelRear.getRightTire().grip = this._totalTireGripRear * (1.0 - this._eBrake * (1.0 - this._eBrakeGripRatioRear));
 
         this._axelFront.getLeftTire().frictionForce = MathUtil.clamp(-this._cornerStiffnessFront * this._axelFront.getSlipAngle(), -this._axelFront.getLeftTire().grip, this._axelFront.getLeftTire().grip) * this._axelFront.getLeftTire().activeWeight;
         this._axelFront.getRightTire().frictionForce = MathUtil.clamp(-this._cornerStiffnessFront * this._axelFront.getSlipAngle(), -this._axelFront.getRightTire().grip, this._axelFront.getRightTire().grip) * this._axelFront.getRightTire().activeWeight;
         this._axelRear.getLeftTire().frictionForce = MathUtil.clamp(-this._cornerStiffnessRear * this._axelRear.getSlipAngle(), -this._axelRear.getLeftTire().grip, this._axelRear.getLeftTire().grip) * this._axelRear.getLeftTire().activeWeight;
         this._axelRear.getRightTire().frictionForce = MathUtil.clamp(-this._cornerStiffnessRear * this._axelRear.getSlipAngle(), -this._axelRear.getRightTire().grip, this._axelRear.getRightTire().grip) * this._axelRear.getRightTire().activeWeight;
-
 
         // Forces
         const tractionForceX = this._axelRear.getTorque() - activeBrake * Math.sign(this._localVelocity.x);
@@ -309,22 +339,25 @@ export class CarMain extends Component {
         }
 
         // Acceleration
-        this._localAcceleration.x = totalForceX / this._carMass;
-        this._localAcceleration.y = totalForceY / this._carMass;
+        this._localAcceleration.x = totalForceX / this.carMass;
+        this._localAcceleration.y = totalForceY / this.carMass;
+
 
         this._acceleration.x = cos * this._localAcceleration.x - sin * this._localAcceleration.y;
         this._acceleration.y = sin * this._localAcceleration.x + cos * this._localAcceleration.y;
 
         // Velocity and speed
-        this._velocity.x += this._acceleration.x * this._deltaTime;
-        this._velocity.y += this._acceleration.y * this._deltaTime;
+        this._velocity.x += this._acceleration.x * dt;
+        this._velocity.y += this._acceleration.y * dt;
 
         this._absoluteVelocity = this.getMagnitidute(this._velocity);
-
-        // Angular torque of car
+        //力矩主要来源于摩擦力
         let angularTorque = (this._axelFront.getFrictionForce() * this._axelFront.getDistanceToCg()) - (this._axelRear.getFrictionForce() * this._axelRear.getDistanceToCg());
+        this._angularTorque = angularTorque;
 
-        // Car will drift away at low speeds
+
+        const vRate = 1;
+        // 汽车低速且无油门时直接刹停
         if (this._absoluteVelocity < 0.5 && activeThrottle == 0) {
             this._localAcceleration = v2(0, 0);
             this._absoluteVelocity = 0;
@@ -335,22 +368,28 @@ export class CarMain extends Component {
             this._carRb.angularVelocity = 0;
         }
 
+        //角加速度   角力矩 除以惯性
         const angularAcceleration = angularTorque / this._inertia;
+        // 通过角加速度更新角速度
+        this._angularVelocity += angularAcceleration * dt;
 
-        // Update 
-        this._angularVelocity += angularAcceleration * this._deltaTime;
-
-        // Simulation likes to calculate high angular velocity at very low speeds - adjust for this
-        if (this._absoluteVelocity < 1 && Math.abs(this._steerAngle) < 0.05) {
+        // 更正低速时角加速度过高
+        if (this._absoluteVelocity < 1 * vRate && Math.abs(this._steerAngle) < 0.05) {
             this._angularVelocity = 0;
-        } else if (this.getSpeedKilometersPerHour() < 0.75) {
+        } else if (this.getSpeedKilometersPerHour(linearvX, linearvY) < 0.75 * vRate) {
             this._angularVelocity = 0;
         }
 
-        this._headingAngle += this._angularVelocity * this._deltaTime;
+        // console.log("------------------------------------");
+        // console.log("preHeadingAngle    ", this._headingAngle);
+        //console.log("angularVelocity   ", this._angularVelocity, "    dt   ", dt);
+        //汽车指向角度（弧度）
+        this._headingAngle += this._angularVelocity * dt;
+        // console.log("headingAngle   ", this._headingAngle);
+        // console.log("------------------------------------");
+        //汽车速度更新
         this._carRb.linearVelocity = this._velocity;
-
-        // this._carRb.MoveRotation(MathUtil.rad2Deg * this._headingAngle - 90);
+        this.moveRotation(MathUtil.rad2Deg * this._headingAngle - 90);
     }
 
     private setOtherShowDat() {
@@ -395,12 +434,12 @@ export class CarMain extends Component {
     }
 
     private getGravity() {
-        return PhysicsSystem2D.instance.gravity;
+        return this._gravity;
     }
 
 
-    public getSpeedKilometersPerHour() {
-        return this.getMagnitidute(this._carRb.linearVelocity) * 18.0 / 5.0;
+    public getSpeedKilometersPerHour(x, y) {
+        return Math.sqrt(Math.pow(x, 2) + Math.pow(y, 2));
     }
 
     private updateCar() {
@@ -408,18 +447,13 @@ export class CarMain extends Component {
         this._brake = 0;
         this._eBrake = 0;
         let steerInput = 0;
-        switch (this._pressCode) {
+
+        switch (this._pressCodeDirect) {
             case KeyCode.ARROW_UP:
                 this._throttle = 1;
                 break;
             case KeyCode.ARROW_DOWN:
                 this._throttle = -1;
-                break;
-            case KeyCode.ARROW_LEFT:
-                steerInput = 1;
-                break;
-            case KeyCode.ARROW_RIGHT:
-                steerInput = -1;
                 break;
             case KeyCode.SPACE:
                 this._eBrake = 1;
@@ -429,6 +463,15 @@ export class CarMain extends Component {
                 break;
             case KeyCode.KEY_Z:
                 this._engine.ShiftDown();
+                break;
+        }
+
+        switch (this._pressCodeRotate) {
+            case KeyCode.ARROW_LEFT:
+                steerInput = 1;
+                break;
+            case KeyCode.ARROW_RIGHT:
+                steerInput = -1;
                 break;
         }
 
@@ -451,7 +494,35 @@ export class CarMain extends Component {
         this._axelFront.getLeftTire().node.setRotation(new Quat(rot.x, rot.y, rot.z));
     }
 
+    private updateRedDot() {
+        let pos = new Vec3();
+        if (this.getMagnitidute(this._localAcceleration) > 1.0) {
+            const wfl = MathUtil.max(0, (this._axelFront.getLeftTire().activeWeight - this._axelFront.getLeftTire().restingWeight));
+            const wfr = MathUtil.max(0, (this._axelFront.getRightTire().activeWeight - this._axelFront.getRightTire().restingWeight));
+            const wrl = MathUtil.max(0, (this._axelRear.getLeftTire().activeWeight - this._axelRear.getLeftTire().restingWeight));
+            const wrr = MathUtil.max(0, (this._axelRear.getRightTire().activeWeight - this._axelRear.getRightTire().restingWeight));
+            pos = this.getNodeLocalPos(this._axelFront.getLeftTire().node.getWorldPosition()).multiplyScalar(wfl)
+                .add(this.getNodeLocalPos(this._axelFront.getRightTire().node.getWorldPosition()).multiplyScalar(wfr))
+                .add(this.getNodeLocalPos(this._axelRear.getLeftTire().node.getWorldPosition()).multiplyScalar(wrl))
+                .add(this.getNodeLocalPos(this._axelRear.getRightTire().node.getWorldPosition()).multiplyScalar(wrr));
+            const weightTotal = wfl + wfr + wrl + wrr;
+            if (weightTotal > 0) {
+                Vec3.normalize(pos, pos.multiplyScalar(1 / weightTotal));
+                pos.x = MathUtil.clamp(pos.x, -0.6, 0.6);
+            } else {
+                pos = v3(0, 0, 0);
+            }
+        }
+        let t = new Vec3();
+        Vec3.lerp(t, this.weightRedDot.getPosition(), pos.multiplyScalar(50), 0.1);
+        this.weightRedDot.setPosition(t);
+    }
+
     private updateUI() {
+        if (!this.uiNode) {
+            console.log("请挂载遥测数据节点!!!");
+            return;
+        }
         this.autoRefreshChildren(this.uiNode, this._carDatObj, (item, index, showDatKey) => {
             let res = "";
             if (!this._allKey.find(key => key == showDatKey)) {
@@ -493,9 +564,22 @@ export class CarMain extends Component {
 
 
     private getMagnitidute(vec: Vec2): number {
-        const vec2 = new Vec2(vec.x, vec.y);
-        return Math.sqrt(Math.pow(vec2.x, 2) + Math.pow(vec2.y, 2));
+        return Math.sqrt(Math.pow(vec.x, 2) + Math.pow(vec.y, 2));
     }
+
+    private getNodeLocalPos(worldPos: Vec3): Vec3 {
+        const res = new Vec3();
+        this.node.inverseTransformPoint(res, worldPos);
+        return res;
+    }
+
+    private moveRotation(degree: number) {
+        const carRot = new Quat();
+        Quat.fromEuler(carRot, 0, 0, degree);
+        this._carRb.node.setRotation(carRot);
+    }
+
+
 
 }
 

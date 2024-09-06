@@ -93,17 +93,17 @@ export class CarEngine extends Component {
 
     }
 
-    // public void UpdateAutomaticTransmission(Rigidbody2D rb) {
-	// 	float rpm = GetRPM(rb);
+    public updateAutomaticTransmission(car:CarMain) {
+		const rpm = this.GetRPM(car);
 
-    //     if (rpm > 6200) {
-    //         if (CurrentGear < 5)
-    //             CurrentGear++;
-    //     } else if (rpm < 2000) {
-    //         if (CurrentGear > 0)
-    //             CurrentGear--;
-    //     }
-    // }
+        if (rpm > 6200) {
+            if (this._currentGear < 5)
+                this._currentGear++;
+        } else if (rpm < 2000) {
+            if (this._currentGear > 0)
+                this._currentGear--;
+        }
+    }
 
 }
 
