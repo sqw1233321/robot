@@ -24,16 +24,13 @@ export class CarMain extends Component {
     weightRedDot: Node;
 
     @property(Node)
-    carCamera: Node;
-
-    @property(Node)
     uiNode: Node;
 
     @property(Node)
-    cameraAll: Node;
-
-    @property(Node)
     parentNd: Node;
+
+    @property(Boolean)
+    showDat: boolean = false;
 
     //参数：
     ///////////////////////////////////////////////////////////////////////
@@ -55,7 +52,7 @@ export class CarMain extends Component {
 
     private _airResistance = 2.5;
 
-    private _rollingResistance = 8.0;
+    private _rollingResistance = 20.0;
 
     private _eBrakeGripRatioFront = 0.9;
 
@@ -235,18 +232,15 @@ export class CarMain extends Component {
     }
 
     protected update(dt: number): void {
-        console.log("update");
         this._deltaTime = dt;
         this.updateCar();
         this.updateRedDot();
-        this.updateUI();
+        if (this.showDat) this.updateUI();
         // //漂移线
         if (Math.abs(this._localAcceleration.y) > 18 || this._eBrake == 1) {
-            console.log("开启漂移线");
             // AxleRear.TireRight.SetTrailActive(true);
             // AxleRear.TireLeft.SetTrailActive(true);
         } else {
-            console.log("关闭漂移线");
             // AxleRear.TireRight.SetTrailActive(false);
             // AxleRear.TireLeft.SetTrailActive(false);
         }
@@ -254,7 +248,6 @@ export class CarMain extends Component {
     }
 
     private _fixedUpdate() {
-        console.log("fixedUpdate");
         this.calCarStatus();
         this.setOtherShowDat();
     }
@@ -497,6 +490,8 @@ export class CarMain extends Component {
             const wfr = MathUtil.max(0, (this._axelFront.getRightTire().activeWeight - this._axelFront.getRightTire().restingWeight));
             const wrl = MathUtil.max(0, (this._axelRear.getLeftTire().activeWeight - this._axelRear.getLeftTire().restingWeight));
             const wrr = MathUtil.max(0, (this._axelRear.getRightTire().activeWeight - this._axelRear.getRightTire().restingWeight));
+            console.log("wrl   ", wrl);
+            console.log("wrr  ", wrr);
             pos = this.getNodeLocalPos(this._axelFront.getLeftTire().node.getWorldPosition()).multiplyScalar(wfl)
                 .add(this.getNodeLocalPos(this._axelFront.getRightTire().node.getWorldPosition()).multiplyScalar(wfr))
                 .add(this.getNodeLocalPos(this._axelRear.getLeftTire().node.getWorldPosition()).multiplyScalar(wrl))
@@ -510,7 +505,9 @@ export class CarMain extends Component {
             }
         }
         let t = new Vec3();
-        Vec3.lerp(t, this.weightRedDot.getPosition(), pos.multiplyScalar(50), 0.1);
+        pos.multiplyScalar(50)
+        console.log("rrrrrrrrrr   ", pos);
+        Vec3.lerp(t, this.weightRedDot.getPosition(), pos, 0.1);
         this.weightRedDot.setPosition(t);
     }
 
