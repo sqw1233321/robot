@@ -21,11 +21,11 @@
     "_active": true,
     "_components": [],
     "_prefab": {
-      "__id__": 52
+      "__id__": 53
     },
     "autoReleaseAssets": false,
     "_globals": {
-      "__id__": 71
+      "__id__": 72
     },
     "_id": "d9d2cba0-55e1-4ff5-9171-30b81997e1ba"
   },
@@ -56,13 +56,13 @@
     "_active": true,
     "_components": [
       {
-        "__id__": 49
-      },
-      {
         "__id__": 50
       },
       {
         "__id__": 51
+      },
+      {
+        "__id__": 52
       }
     ],
     "_prefab": null,
@@ -1033,6 +1033,9 @@
       },
       {
         "__id__": 48
+      },
+      {
+        "__id__": 49
       }
     ],
     "_prefab": null,
@@ -1146,9 +1149,20 @@
       "x": 0,
       "y": 0
     },
-    "_angularVelocity": 50,
+    "_angularVelocity": 0,
     "_fixedRotation": false,
     "_id": "eeN6Io+DRGeaOYmwicBz7Y"
+  },
+  {
+    "__type__": "3d438Kbdf9LdaXtTTPAj9GY",
+    "_name": "",
+    "_objFlags": 0,
+    "node": {
+      "__id__": 45
+    },
+    "_enabled": true,
+    "__prefab": null,
+    "_id": "a2xn8LDzJNlqMJajKK1itq"
   },
   {
     "__type__": "cc.UITransform",
@@ -1220,22 +1234,22 @@
     "fileId": "d9d2cba0-55e1-4ff5-9171-30b81997e1ba",
     "targetOverrides": [
       {
-        "__id__": 53
+        "__id__": 54
       },
       {
-        "__id__": 56
+        "__id__": 57
       },
       {
-        "__id__": 59
+        "__id__": 60
       },
       {
-        "__id__": 62
+        "__id__": 63
       },
       {
-        "__id__": 65
+        "__id__": 66
       },
       {
-        "__id__": 68
+        "__id__": 69
       }
     ],
     "nestedPrefabInstanceRoots": [
@@ -1250,7 +1264,7 @@
       "__id__": 9
     },
     "sourceInfo": {
-      "__id__": 54
+      "__id__": 55
     },
     "propertyPath": [
       "carBody"
@@ -1259,7 +1273,7 @@
       "__id__": 9
     },
     "targetInfo": {
-      "__id__": 55
+      "__id__": 56
     }
   },
   {
@@ -1280,7 +1294,7 @@
       "__id__": 9
     },
     "sourceInfo": {
-      "__id__": 57
+      "__id__": 58
     },
     "propertyPath": [
       "engineNode"
@@ -1289,7 +1303,7 @@
       "__id__": 9
     },
     "targetInfo": {
-      "__id__": 58
+      "__id__": 59
     }
   },
   {
@@ -1310,7 +1324,7 @@
       "__id__": 9
     },
     "sourceInfo": {
-      "__id__": 60
+      "__id__": 61
     },
     "propertyPath": [
       "frontAxel"
@@ -1319,7 +1333,7 @@
       "__id__": 9
     },
     "targetInfo": {
-      "__id__": 61
+      "__id__": 62
     }
   },
   {
@@ -1340,7 +1354,7 @@
       "__id__": 9
     },
     "sourceInfo": {
-      "__id__": 63
+      "__id__": 64
     },
     "propertyPath": [
       "rearAxel"
@@ -1349,7 +1363,7 @@
       "__id__": 9
     },
     "targetInfo": {
-      "__id__": 64
+      "__id__": 65
     }
   },
   {
@@ -1370,7 +1384,7 @@
       "__id__": 9
     },
     "sourceInfo": {
-      "__id__": 66
+      "__id__": 67
     },
     "propertyPath": [
       "weightRedDot"
@@ -1379,7 +1393,7 @@
       "__id__": 9
     },
     "targetInfo": {
-      "__id__": 67
+      "__id__": 68
     }
   },
   {
@@ -1400,7 +1414,7 @@
       "__id__": 9
     },
     "sourceInfo": {
-      "__id__": 69
+      "__id__": 70
     },
     "propertyPath": [
       "carCamera"
@@ -1409,7 +1423,7 @@
       "__id__": 9
     },
     "targetInfo": {
-      "__id__": 70
+      "__id__": 71
     }
   },
   {
@@ -1427,19 +1441,19 @@
   {
     "__type__": "cc.SceneGlobals",
     "ambient": {
-      "__id__": 72
-    },
-    "shadows": {
       "__id__": 73
     },
-    "_skybox": {
+    "shadows": {
       "__id__": 74
     },
-    "fog": {
+    "_skybox": {
       "__id__": 75
     },
-    "octree": {
+    "fog": {
       "__id__": 76
+    },
+    "octree": {
+      "__id__": 77
     }
   },
   {

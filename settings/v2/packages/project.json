@@ -1,0 +1,7 @@
+{
+  "physics": {
+    "fixedTimeStep": 0.02,
+    "maxSubSteps": 1,
+    "autoSimulation": true
+  }
+}
