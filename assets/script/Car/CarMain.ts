@@ -27,10 +27,13 @@ export class CarMain extends Component {
     carCamera: Node;
 
     @property(Node)
-    uiNode;
+    uiNode: Node;
 
     @property(Node)
     cameraAll: Node;
+
+    @property(Node)
+    parentNd: Node;
 
     //参数：
     ///////////////////////////////////////////////////////////////////////
@@ -185,7 +188,7 @@ export class CarMain extends Component {
         this._allKey = Object.keys(this);
         input.on(Input.EventType.KEY_DOWN, this.onKeyDown, this);
         input.on(Input.EventType.KEY_UP, this.onKeyUp, this);
-        this._carRb = this.node.addComponentSafe(RigidBody2D);
+        this._carRb = this.parentNd.addComponentSafe(RigidBody2D);
         this._axelFront = this.frontAxel.addComponentSafe(CarAxel);
         this._axelRear = this.rearAxel.addComponentSafe(CarAxel);
         this._engine = this.engineNode.addComponentSafe(CarEngine);
@@ -217,7 +220,6 @@ export class CarMain extends Component {
         this._axelRear.init(this, this._wheelBase);
         this._trackWidth = Vec2.distance(this._axelRear.getLeftTire().node.position, this._axelRear.getRightTire().node.position);
         director.on(Director.EVENT_BEFORE_PHYSICS, this._fixedUpdate, this);
-        // director.on(Director.EVENT_AFTER_UPDATE, this.setCamera, this);
     }
 
     private onKeyDown(event: EventKeyboard) {
@@ -233,9 +235,11 @@ export class CarMain extends Component {
     }
 
     protected update(dt: number): void {
+        console.log("update");
         this._deltaTime = dt;
         this.updateCar();
         this.updateRedDot();
+        this.updateUI();
         // //漂移线
         if (Math.abs(this._localAcceleration.y) > 18 || this._eBrake == 1) {
             console.log("开启漂移线");
@@ -247,21 +251,16 @@ export class CarMain extends Component {
             // AxleRear.TireLeft.SetTrailActive(false);
         }
         this._engine.updateAutomaticTransmission(this);
-        this.updateUI();
     }
 
-    private _fixedUpdate(dt: number) {
-        this.calCarStatus(dt);
+    private _fixedUpdate() {
+        console.log("fixedUpdate");
+        this.calCarStatus();
         this.setOtherShowDat();
-        this.setCamera();
     }
 
-    private setCamera() {
-        //this.cameraAll.setPosition(this.node.getPosition());
-    }
-
-    private calCarStatus(dt: number) {
-        dt = 0.02;
+    private calCarStatus() {
+        const dt = PhysicsSystem2D.instance.fixedTimeStep;
         const linearvX = this._carRb.linearVelocity.x;
         const linearvY = this._carRb.linearVelocity.y;
         this._velocity.x = linearvX;
