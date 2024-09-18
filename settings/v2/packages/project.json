@@ -3,5 +3,22 @@
     "fixedTimeStep": 0.02,
     "maxSubSteps": 1,
     "autoSimulation": true
+  },
+  "layer": [
+    {
+      "name": "CAR",
+      "value": 524288
+    },
+    {
+      "name": "GROUND",
+      "value": 262144
+    }
+  ],
+  "general": {
+    "designResolution": {
+      "width": 960,
+      "fitHeight": true,
+      "fitWidth": false
+    }
   }
 }

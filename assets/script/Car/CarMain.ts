@@ -1,9 +1,10 @@
 //车辆本身
 
-import { _decorator, Component, Director, director, error, EventKeyboard, Input, input, instantiate, IQuatLike, JsonAsset, KeyCode, Label, macro, math, Node, PhysicsSystem, PhysicsSystem2D, Quat, resources, RigidBody2D, v2, v3, Vec2, Vec3 } from 'cc';
+import { _decorator, Canvas, Component, Director, director, error, EventKeyboard, find, game, Input, input, instantiate, IQuatLike, JsonAsset, KeyCode, Label, macro, math, Node, PhysicsSystem, PhysicsSystem2D, Quat, resources, RigidBody2D, Scene, v2, v3, Vec2, Vec3, view } from 'cc';
 import { CarAxel } from './CarAxel';
 import { CarEngine } from './CarEngine';
 import { MathUtil } from '../Util/MathUtil';
+import { ControllerWay, EasyControllerEvent } from '../Operate/EasyController';
 const { ccclass, property } = _decorator;
 
 @ccclass('CarMain')
@@ -133,6 +134,8 @@ export class CarMain extends Component {
     private _brake: number = 0;
     //手刹
     private _eBrake: number = 0;
+    //转向输入
+    private _steerInput: number = 0;
 
     //刚体
     private _carRb: RigidBody2D;
@@ -159,6 +162,16 @@ export class CarMain extends Component {
 
     private _gravity = new Vec2(0, 9.81);
 
+
+    private _scene: Scene;
+
+    //操控方式
+    private _operate: ControllerWay = ControllerWay.JoyTick;
+
+    private _joyTickDegree: number = 0;
+    private _joyTickOffset: number = 0;
+    private _onceJoyStickHeading: number = 0;
+
     /**
      * 获取线速度
      */
@@ -172,8 +185,8 @@ export class CarMain extends Component {
         physicsSystem.positionIterations = 3;
     }
 
-
     protected onLoad(): void {
+        this._scene = director.getScene();
         this.setPhysics();
         resources.load('carDatJson', (err: any, res: JsonAsset) => {
             if (err) {
@@ -185,12 +198,21 @@ export class CarMain extends Component {
         this._allKey = Object.keys(this);
         input.on(Input.EventType.KEY_DOWN, this.onKeyDown, this);
         input.on(Input.EventType.KEY_UP, this.onKeyUp, this);
+
+        this._scene.on(EasyControllerEvent.MOVEMENT, this.onJoyStick, this);
+        this._scene.on(EasyControllerEvent.MOVEMENT_STOP, this.onJoyStickUp, this);
+
         this._carRb = this.parentNd.addComponentSafe(RigidBody2D);
         this._axelFront = this.frontAxel.addComponentSafe(CarAxel);
         this._axelRear = this.rearAxel.addComponentSafe(CarAxel);
         this._engine = this.engineNode.addComponentSafe(CarEngine);
         this._centerOfGravity = this.weightRedDot;
         this.init();
+    }
+
+    protected onDestroy(): void {
+        this._scene.off(EasyControllerEvent.MOVEMENT, this.onJoyStick, this);
+        this._scene.off(EasyControllerEvent.MOVEMENT_STOP, this.onJoyStickUp, this);
     }
 
     private init() {
@@ -230,6 +252,20 @@ export class CarMain extends Component {
         if (code == KeyCode.ARROW_UP || code == KeyCode.ARROW_DOWN) this._pressCodeDirect = 0
         else if (code == KeyCode.ARROW_LEFT || code == KeyCode.ARROW_RIGHT) this._pressCodeRotate = 0;
     }
+
+    //degree 逆时针 0 - 360   offset 0 - 1;
+    private onJoyStick(degree: number, offset: number) {
+        this._joyTickDegree = degree;
+        this._joyTickOffset = offset;
+        this._onceJoyStickHeading = (this._headingAngle * 180 / Math.PI) % 360 - 90;
+    }
+
+    private onJoyStickUp() {
+        this._joyTickDegree = 0;
+        this._joyTickOffset = 0;
+        this._onceJoyStickHeading = (this._headingAngle * 180 / Math.PI) % 360 - 90;
+    }
+
 
     protected update(dt: number): void {
         this._deltaTime = dt;
@@ -373,8 +409,7 @@ export class CarMain extends Component {
 
         //汽车指向角度（弧度）
         this._accumulatedAngle += this._angularVelocity * dt;
-        this._headingAngle = this._accumulatedAngle * 180 / Math.PI;
-        const clampedAngle = this._headingAngle % 360;
+        const clampedAngle = (this._accumulatedAngle * 180 / Math.PI) % 360;
         this.node.setRotationFromEuler(0, 0, clampedAngle);
 
         //汽车速度更新
@@ -403,7 +438,7 @@ export class CarMain extends Component {
     private smoothSteering(steerInput: number) {
         let steer = 0;
         if (Math.abs(steerInput) > 0.001) {
-            steer = MathUtil.clamp(this._steerDirection + steerInput * this._deltaTime * this._steerSpeed, -1.0, 1.0);
+            steer = MathUtil.clamp(this._steerDirection + steerInput * this._deltaTime * this._steerSpeed, -1.0 * Math.abs(steerInput), 1.0 * Math.abs(steerInput));
         }
         else {
             if (this._steerDirection > 0) {
@@ -431,12 +466,7 @@ export class CarMain extends Component {
         return Math.sqrt(Math.pow(x, 2) + Math.pow(y, 2));
     }
 
-    private updateCar() {
-        this._throttle = 0;
-        this._brake = 0;
-        this._eBrake = 0;
-        let steerInput = 0;
-
+    private keyBoardController() {
         switch (this._pressCodeDirect) {
             case KeyCode.ARROW_UP:
                 this._throttle = 1;
@@ -457,19 +487,47 @@ export class CarMain extends Component {
 
         switch (this._pressCodeRotate) {
             case KeyCode.ARROW_LEFT:
-                steerInput = 1;
+                this._steerInput = 1;
                 break;
             case KeyCode.ARROW_RIGHT:
-                steerInput = -1;
+                this._steerInput = -1;
                 break;
+        }
+    }
+
+    private joyTickController() {
+        const headAngle = (this._headingAngle * 180 / Math.PI) % 360 - 90;
+        const deltaD = this._joyTickDegree - headAngle;
+        const deltaDRadians = deltaD * (Math.PI / 180);
+        const dSin = Math.sin(deltaDRadians);
+        const dCos = Math.cos(deltaDRadians);
+        this._throttle = dCos * this._joyTickOffset;
+        this._steerInput = dSin * this._joyTickOffset;
+    }
+
+
+    private updateCar() {
+        this._throttle = 0;
+        this._brake = 0;
+        this._steerInput = 0;
+        this._eBrake = 0;
+        let steerAngleRatio = 1;
+        if (this._operate == ControllerWay.KeyBoard) {
+            this.keyBoardController();
+        }
+        else if (this._operate == ControllerWay.JoyTick) {
+            this.joyTickController();
+            steerAngleRatio = this._joyTickOffset;
         }
 
         // Apply filters to our steer direction
-        this._steerDirection = this.smoothSteering(steerInput);
+        console.log("   ssss    ", this._steerInput);
+        this._steerDirection = this.smoothSteering(this._steerInput);
+        console.log(" ssDirect   ", this._steerDirection);
         this._steerDirection = this.speedAdjustedSteering(this._steerDirection);
 
         // Calculate the current angle the tires are pointing
-        this._steerAngle = this._steerDirection * this._maxSteerAngle;
+        this._steerAngle = this._steerDirection * this._maxSteerAngle * steerAngleRatio;
 
         // Set front axle tires rotation
         const rot: IQuatLike = {
@@ -490,8 +548,6 @@ export class CarMain extends Component {
             const wfr = MathUtil.max(0, (this._axelFront.getRightTire().activeWeight - this._axelFront.getRightTire().restingWeight));
             const wrl = MathUtil.max(0, (this._axelRear.getLeftTire().activeWeight - this._axelRear.getLeftTire().restingWeight));
             const wrr = MathUtil.max(0, (this._axelRear.getRightTire().activeWeight - this._axelRear.getRightTire().restingWeight));
-            console.log("wrl   ", wrl);
-            console.log("wrr  ", wrr);
             pos = this.getNodeLocalPos(this._axelFront.getLeftTire().node.getWorldPosition()).multiplyScalar(wfl)
                 .add(this.getNodeLocalPos(this._axelFront.getRightTire().node.getWorldPosition()).multiplyScalar(wfr))
                 .add(this.getNodeLocalPos(this._axelRear.getLeftTire().node.getWorldPosition()).multiplyScalar(wrl))
@@ -505,8 +561,7 @@ export class CarMain extends Component {
             }
         }
         let t = new Vec3();
-        pos.multiplyScalar(50)
-        console.log("rrrrrrrrrr   ", pos);
+        pos.multiplyScalar(50);
         Vec3.lerp(t, this.weightRedDot.getPosition(), pos, 0.1);
         this.weightRedDot.setPosition(t);
     }
